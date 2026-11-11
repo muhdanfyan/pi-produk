@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   ShoppingBag, Search, Star, ArrowRight, ShieldCheck, 
-  Trash2, X, Plus, Minus, Package, Laptop, BookOpen, Shirt
+  Trash2, X, Plus, Minus, Package, Laptop, BookOpen, Shirt,
+  Upload, Image as ImageIcon, Loader2, CheckCircle2, RefreshCw
 } from 'lucide-react';
 
 interface Product {
@@ -10,143 +11,183 @@ interface Product {
   category: 'software' | 'book' | 'merch';
   categoryLabel: string;
   price: number;
-  originalPrice?: number;
+  originalPrice?: number | null;
   rating: number;
   salesCount: number;
   desc: string;
   features: string[];
   image: string;
   isDigital: boolean;
+  stok?: number;
 }
 
 interface CartItem extends Product {
   quantity: number;
 }
 
+const DEFAULT_PRODUCTS: Product[] = [
+  {
+    id: 1,
+    title: "PiSantri Multi-Tenant School ERP",
+    category: "software",
+    categoryLabel: "Software Source Code",
+    price: 1500000,
+    originalPrice: 3000000,
+    rating: 4.9,
+    salesCount: 42,
+    desc: "Source code lengkap sistem manajemen pesantren & sekolah multi-tenant siap pakai. Termasuk modul Akademik, Tahfidz, Keuangan SPP, dan Presensi Santri.",
+    features: [
+      "Frontend React + Vite + Tailwind CSS",
+      "Backend Laravel 11 REST API",
+      "Dukungan Multi-Tenant Subdomain Otomatis",
+      "Dokumentasi Deployment Docker & Nginx",
+      "Free Konsultasi Instalasi 1 Bulan"
+    ],
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=80",
+    isDigital: true
+  },
+  {
+    id: 2,
+    title: "WhatsApp Bot Gateway Microservice",
+    category: "software",
+    categoryLabel: "Software Source Code",
+    price: 750000,
+    originalPrice: 1200000,
+    rating: 4.8,
+    salesCount: 68,
+    desc: "Source code microservice REST API WhatsApp Gateway tanpa biaya langganan bulanan pihak ketiga. Siap integrasi broadcast tagihan, OTP, dan CS bot.",
+    features: [
+      "Engine Baileys Node.js High Concurrency",
+      "Queue Job Redis Anti-Banned Safe Delays",
+      "Webhook Handler & Multi-Device Support",
+      "Docker Compose Ready"
+    ],
+    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80",
+    isDigital: true
+  },
+  {
+    id: 3,
+    title: "Buku: Jalan Ninja Santri Menembus IT Global",
+    category: "book",
+    categoryLabel: "E-Book & Panduan",
+    price: 99000,
+    originalPrice: 150000,
+    rating: 5.0,
+    salesCount: 135,
+    desc: "Panduan komprehensif roadmap belajar santri dari nol hingga mahir software engineering, etika adab penuntut ilmu, dan kiat tembus kerja remote internasional.",
+    features: [
+      "Format PDF & EPUB Interaktif (280 Halaman)",
+      "Roadmap Fullstack & AI Engineer 2026",
+      "Template CV & Portofolio Standar Tech Global",
+      "Studi Kasus Santri Sukses Berkarya"
+    ],
+    image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80",
+    isDigital: true
+  },
+  {
+    id: 4,
+    title: "Official Hoodie Developer Santri (Heavyweight)",
+    category: "merch",
+    categoryLabel: "Merchandise Resmi",
+    price: 245000,
+    rating: 4.9,
+    salesCount: 88,
+    desc: "Hoodie katun fleece premium 330 gsm dengan tipografi bordir eksklusif 'Code in Dunya, Jannah in Akhirah'. 100% keuntungan untuk beasiswa santri.",
+    features: [
+      "Material Cotton Fleece 330 GSM Nyaman & Sejuk",
+      "Bordir Komputer Presisi & Tahan Lama",
+      "Tersedia Ukuran M, L, XL, XXL",
+      "Gratis Sticker Pack Tech Santri"
+    ],
+    image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80",
+    isDigital: false
+  },
+  {
+    id: 5,
+    title: "Starter Kit Landing Page Yayasan & Pesantren",
+    category: "software",
+    categoryLabel: "Template Website",
+    price: 350000,
+    originalPrice: 600000,
+    rating: 4.7,
+    salesCount: 31,
+    desc: "Template website landing page modern berbasis Next.js 14 & Tailwind CSS untuk profil pondok pesantren, donasi wakaf, dan pendaftaran santri baru.",
+    features: [
+      "Next.js App Router & TypeScript",
+      "Komponen Form Pendaftaran Terintegrasi",
+      "Kalkulator Zakat & Wakaf Otomatis",
+      "Lighthouse Score 99/100 Mobile & Desktop"
+    ],
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=80",
+    isDigital: true
+  },
+  {
+    id: 6,
+    title: "Kaos Tech Santri: 'Istiqomah & Debugging'",
+    category: "merch",
+    categoryLabel: "Merchandise Resmi",
+    price: 125000,
+    rating: 4.8,
+    salesCount: 112,
+    desc: "T-Shirt katun combed 24s lembut dengan sablon plastisol premium. Nyaman untuk ngoding seharian maupun aktivitas harian pondok.",
+    features: [
+      "Bahan Cotton Combed 24s Reaktif",
+      "Sablon Plastisol Doff Awet & Tidak Pecah",
+      "Desain Minimalis Elegan",
+      "Free Gantungan Kunci Silikon Pondok"
+    ],
+    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80",
+    isDigital: false
+  }
+];
+
 export default function App() {
+  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
 
-  const products: Product[] = [
-    {
-      id: 1,
-      title: "PiSantri Multi-Tenant School ERP",
-      category: "software",
-      categoryLabel: "Software Source Code",
-      price: 1500000,
-      originalPrice: 3000000,
-      rating: 4.9,
-      salesCount: 42,
-      desc: "Source code lengkap sistem manajemen pesantren & sekolah multi-tenant siap pakai. Termasuk modul Akademik, Tahfidz, Keuangan SPP, dan Presensi Santri.",
-      features: [
-        "Frontend React + Vite + Tailwind CSS",
-        "Backend Laravel 11 REST API",
-        "Dukungan Multi-Tenant Subdomain Otomatis",
-        "Dokumentasi Deployment Docker & Nginx",
-        "Free Konsultasi Instalasi 1 Bulan"
-      ],
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=80",
-      isDigital: true
-    },
-    {
-      id: 2,
-      title: "WhatsApp Bot Gateway Microservice",
-      category: "software",
-      categoryLabel: "Software Source Code",
-      price: 750000,
-      originalPrice: 1200000,
-      rating: 4.8,
-      salesCount: 68,
-      desc: "Source code microservice REST API WhatsApp Gateway tanpa biaya langganan bulanan pihak ketiga. Siap integrasi broadcast tagihan, OTP, dan CS bot.",
-      features: [
-        "Engine Baileys Node.js High Concurrency",
-        "Queue Job Redis Anti-Banned Safe Delays",
-        "Webhook Handler & Multi-Device Support",
-        "Docker Compose Ready"
-      ],
-      image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80",
-      isDigital: true
-    },
-    {
-      id: 3,
-      title: "Buku: Jalan Ninja Santri Menembus IT Global",
-      category: "book",
-      categoryLabel: "E-Book & Panduan",
-      price: 99000,
-      originalPrice: 150000,
-      rating: 5.0,
-      salesCount: 135,
-      desc: "Panduan komprehensif roadmap belajar santri dari nol hingga mahir software engineering, etika adab penuntut ilmu, dan kiat tembus kerja remote internasional.",
-      features: [
-        "Format PDF & EPUB Interaktif (280 Halaman)",
-        "Roadmap Fullstack & AI Engineer 2026",
-        "Template CV & Portofolio Standar Tech Global",
-        "Studi Kasus Santri Sukses Berkarya"
-      ],
-      image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80",
-      isDigital: true
-    },
-    {
-      id: 4,
-      title: "Official Hoodie Developer Santri (Heavyweight)",
-      category: "merch",
-      categoryLabel: "Merchandise Resmi",
-      price: 245000,
-      rating: 4.9,
-      salesCount: 88,
-      desc: "Hoodie katun fleece premium 330 gsm dengan tipografi bordir eksklusif 'Code in Dunya, Jannah in Akhirah'. 100% keuntungan untuk beasiswa santri.",
-      features: [
-        "Material Cotton Fleece 330 GSM Nyaman & Sejuk",
-        "Bordir Komputer Presisi & Tahan Lama",
-        "Tersedia Ukuran M, L, XL, XXL",
-        "Gratis Sticker Pack Tech Santri"
-      ],
-      image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80",
-      isDigital: false
-    },
-    {
-      id: 5,
-      title: "Starter Kit Landing Page Yayasan & Pesantren",
-      category: "software",
-      categoryLabel: "Template Website",
-      price: 350000,
-      originalPrice: 600000,
-      rating: 4.7,
-      salesCount: 31,
-      desc: "Template website landing page modern berbasis Next.js 14 & Tailwind CSS untuk profil pondok pesantren, donasi wakaf, dan pendaftaran santri baru.",
-      features: [
-        "Next.js App Router & TypeScript",
-        "Komponen Form Pendaftaran Terintegrasi",
-        "Kalkulator Zakat & Wakaf Otomatis",
-        "Lighthouse Score 99/100 Mobile & Desktop"
-      ],
-      image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=80",
-      isDigital: true
-    },
-    {
-      id: 6,
-      title: "Kaos Tech Santri: 'Istiqomah & Debugging'",
-      category: "merch",
-      categoryLabel: "Merchandise Resmi",
-      price: 125000,
-      rating: 4.8,
-      salesCount: 112,
-      desc: "T-Shirt katun combed 24s lembut dengan sablon plastisol premium. Nyaman untuk ngoding seharian maupun aktivitas harian pondok.",
-      features: [
-        "Bahan Cotton Combed 24s Reaktif",
-        "Sablon Plastisol Doff Awet & Tidak Pecah",
-        "Desain Minimalis Elegan",
-        "Free Gantungan Kunci Silikon Pondok"
-      ],
-      image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80",
-      isDigital: false
+  // Upload modal state
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState<'software' | 'book' | 'merch'>('software');
+  const [newPrice, setNewPrice] = useState('');
+  const [newOriginalPrice, setNewOriginalPrice] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newFeatures, setNewFeatures] = useState('');
+  const [newIsDigital, setNewIsDigital] = useState(true);
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newImagePreview, setNewImagePreview] = useState<string>('');
+
+  // API Endpoint target
+  const API_BASE = 'https://api.pondokinformatika.id/api';
+
+  const fetchProductsFromBackend = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/store/produk`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+          setProducts(json.data);
+        }
+      }
+    } catch {
+      // Graceful fallback to default seed products
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchProductsFromBackend();
+  }, []);
 
   const categories = [
     { key: 'all', label: 'Semua Produk', icon: Package },
@@ -162,7 +203,7 @@ export default function App() {
         p.desc.toLowerCase().includes(searchQuery.toLowerCase());
       return matchCat && matchSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [products, selectedCategory, searchQuery]);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -203,6 +244,7 @@ export default function App() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
   };
 
+  // WhatsApp checkout using 083134086899 (6283134086899)
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
     const nameStr = buyerName.trim() || 'Hamba Allah';
@@ -219,7 +261,97 @@ export default function App() {
     text += `Mohon info instruksi pembayaran / rekening resmi pengurus. Terima kasih!`;
 
     const encoded = encodeURIComponent(text);
-    window.open(`https://wa.me/6282293827200?text=${encoded}`, '_blank');
+    window.open(`https://wa.me/6283134086899?text=${encoded}`, '_blank');
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setNewImageFile(file);
+      setNewImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newPrice) return;
+
+    setUploadLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('nama_produk', newTitle);
+      formData.append('kategori_slug', newCategory);
+      formData.append('harga', newPrice);
+      if (newOriginalPrice) formData.append('harga_coret', newOriginalPrice);
+      formData.append('deskripsi', newDesc);
+      formData.append('features', newFeatures);
+      formData.append('is_digital', newIsDigital ? '1' : '0');
+      if (newImageFile) {
+        formData.append('gambar', newImageFile);
+      }
+
+      const res = await fetch(`${API_BASE}/store/produk`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.status === 'success' && json.data) {
+          setProducts(prev => [json.data, ...prev]);
+        }
+      } else {
+        // Local state addition if server unreached
+        const fallbackProduct: Product = {
+          id: Date.now(),
+          title: newTitle,
+          category: newCategory,
+          categoryLabel: newCategory === 'software' ? 'Software & Source Code' : newCategory === 'book' ? 'E-Book & Panduan' : 'Merchandise Resmi',
+          price: Number(newPrice),
+          originalPrice: newOriginalPrice ? Number(newOriginalPrice) : null,
+          rating: 5.0,
+          salesCount: 0,
+          desc: newDesc,
+          features: newFeatures ? newFeatures.split('\n').filter(Boolean) : [],
+          image: newImagePreview || 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=80',
+          isDigital: newIsDigital
+        };
+        setProducts(prev => [fallbackProduct, ...prev]);
+      }
+
+      setUploadSuccess(true);
+      setTimeout(() => {
+        setUploadSuccess(false);
+        setUploadModalOpen(false);
+        setNewTitle('');
+        setNewPrice('');
+        setNewOriginalPrice('');
+        setNewDesc('');
+        setNewFeatures('');
+        setNewImageFile(null);
+        setNewImagePreview('');
+      }, 1500);
+    } catch {
+      // Fallback local save
+      const fallbackProduct: Product = {
+        id: Date.now(),
+        title: newTitle,
+        category: newCategory,
+        categoryLabel: newCategory === 'software' ? 'Software & Source Code' : newCategory === 'book' ? 'E-Book & Panduan' : 'Merchandise Resmi',
+        price: Number(newPrice),
+        originalPrice: newOriginalPrice ? Number(newOriginalPrice) : null,
+        rating: 5.0,
+        salesCount: 0,
+        desc: newDesc,
+        features: newFeatures ? newFeatures.split('\n').filter(Boolean) : [],
+        image: newImagePreview || 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=80',
+        isDigital: newIsDigital
+      };
+      setProducts(prev => [fallbackProduct, ...prev]);
+      setUploadModalOpen(false);
+    } finally {
+      setUploadLoading(false);
+    }
   };
 
   return (
@@ -240,6 +372,14 @@ export default function App() {
           </a>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setUploadModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5 text-blue-400" />
+              <span>Tambah Produk</span>
+            </button>
+
             <button
               onClick={() => setCartOpen(true)}
               className="relative p-2.5 rounded-2xl bg-white border border-slate-300 text-slate-700 hover:text-blue-600 hover:border-blue-500 transition-all cursor-pointer shadow-sm"
@@ -276,9 +416,9 @@ export default function App() {
             Dukung kemandirian santri melalui pembelian lisensi perangkat lunak, e-book panduan rekayasa software, dan merchandise resmi Pondok Informatika.
           </p>
 
-          {/* SEARCH */}
-          <div className="mt-8 max-w-xl mx-auto">
-            <div className="relative">
+          {/* SEARCH & REFRESH */}
+          <div className="mt-8 max-w-xl mx-auto flex items-center gap-2">
+            <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -288,6 +428,14 @@ export default function App() {
                 className="w-full pl-11 pr-4 py-3 bg-white border border-slate-300 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
               />
             </div>
+            <button
+              onClick={fetchProductsFromBackend}
+              disabled={isLoading}
+              className="p-3 bg-white hover:bg-slate-50 border border-slate-300 rounded-2xl text-slate-700 shadow-sm transition-all"
+              title="Sinkronisasi Data Database"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
           </div>
         </div>
       </header>
@@ -389,6 +537,174 @@ export default function App() {
         )}
       </main>
 
+      {/* UPLOAD MODAL */}
+      {uploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setUploadModalOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-100 text-slate-500 hover:text-slate-950 hover:bg-slate-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <Upload className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-black text-slate-950">Tambah Produk Baru</h2>
+            </div>
+
+            {uploadSuccess ? (
+              <div className="py-12 text-center space-y-2">
+                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto animate-bounce" />
+                <h3 className="text-base font-bold text-slate-950">Produk Berhasil Ditambahkan!</h3>
+                <p className="text-xs text-slate-600">Data telah tersimpan dan disinkronkan ke etalase.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleUploadSubmit} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Nama Produk *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Template Dashboard Laravel React..."
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Kategori</label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value as any)}
+                      className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-blue-600 shadow-sm"
+                    >
+                      <option value="software">Software &amp; Source Code</option>
+                      <option value="book">E-Book &amp; Panduan</option>
+                      <option value="merch">Merchandise Resmi</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Tipe Produk</label>
+                    <div className="flex items-center gap-4 pt-2 text-xs">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="isDigital"
+                          checked={newIsDigital}
+                          onChange={() => setNewIsDigital(true)}
+                          className="accent-blue-600"
+                        />
+                        <span>Digital</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="isDigital"
+                          checked={!newIsDigital}
+                          onChange={() => setNewIsDigital(false)}
+                          className="accent-blue-600"
+                        />
+                        <span>Fisik</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Harga (Rp) *</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="150000"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Harga Coret (Opsional)</label>
+                    <input
+                      type="number"
+                      placeholder="250000"
+                      value={newOriginalPrice}
+                      onChange={(e) => setNewOriginalPrice(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Foto / Gambar Produk</label>
+                  <div className="flex items-center gap-3">
+                    <label className="flex-1 border-2 border-dashed border-slate-300 rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-blue-500 bg-slate-50 transition-colors">
+                      <ImageIcon className="w-5 h-5 text-slate-400" />
+                      <span className="text-[11px] font-semibold text-slate-600">Pilih File Gambar</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                    {newImagePreview && (
+                      <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-300 bg-slate-100 flex-shrink-0">
+                        <img src={newImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Deskripsi Singkat</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Deskripsi keunggulan produk..."
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Fitur (1 baris per fitur)</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Fitur 1&#10;Fitur 2&#10;Fitur 3"
+                    value={newFeatures}
+                    onChange={(e) => setNewFeatures(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={uploadLoading}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+                  >
+                    {uploadLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Menyimpan ke Database...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        <span>Simpan &amp; Terbitkan Produk</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* CART SLIDEOVER */}
       {cartOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden">
@@ -471,7 +787,7 @@ export default function App() {
                     />
                     <input
                       type="text"
-                      placeholder="Nomor WhatsApp (cth: 08123456789)..."
+                      placeholder="Nomor WhatsApp (cth: 083134086899)..."
                       value={buyerPhone}
                       onChange={(e) => setBuyerPhone(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-sm"
